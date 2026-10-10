@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Finance 실시간 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        bull: '#ef4444', // 한국 기준 상승 (빨강)
+                        bear: '#3b82f6', // 한국 기준 하락 (파랑)
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(229, 231, 235, 0.8);
+        }
+        .dark .glass-panel {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(55, 65, 81, 0.5);
+        }
+        .card-hover {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+        }
+        .dark .card-hover:hover {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(107, 114, 128, 0.7);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="sticky top-0 z-30 glass-panel border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 py-3.5 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-brand-600 text-white rounded-xl shadow-md shadow-brand-500/20">
+                    <i class="fa-solid me-0 fa-chart-line text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg sm:text-xl tracking-tight leading-tight">Google Finance 실시간 대시보드</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">US Markets & USD/KRW (Google Sheets API 연동)</p>
+                </div>
+            </div>
+
+            <!-- Header Utility Controls -->
+            <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-end">
+                <div class="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500" id="liveIndicator"></span>
+                    <span>조회 시간: <strong id="lastUpdatedTime">--:--:--</strong></span>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <!-- Manual Refresh Button -->
+                    <button id="btnRefresh" onclick="fetchGoogleFinanceData()" title="수동 데이터 새로고침" class="p-2 text-slate-600 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-500 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-arrows-rotate text-sm" id="refreshIcon"></i>
+                    </button>
+
+                    <!-- Color Mode Toggle -->
+                    <button id="btnColorTheme" title="상승/하락 색상 기준 변경" class="px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center space-x-1">
+                        <i class="fa-solid fa-palette text-xs"></i>
+                        <span id="colorThemeText">한국식(▲빨강)</span>
+                    </button>
+
+                    <!-- Dark Mode Toggle -->
+                    <button id="btnDarkMode" title="다크 모드 토글" class="p-2 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                        <i class="fa-solid fa-moon text-sm dark:hidden"></i>
+                        <i class="fa-solid fa-sun text-sm hidden dark:block text-amber-400"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 flex-1 space-y-6">
+
+        <!-- Market Summary Overview Cards Grid -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="cardsGrid">
+            
+            <!-- USD/KRW Card -->
+            <div class="glass-panel rounded-2xl p-4 card-hover cursor-pointer border-l-4 border-l-brand-500 shadow-sm relative overflow-hidden group" onclick="switchChartDataset('USDKRW')">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">₩</span>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100">원/달러 환율</h3>
+                            <p class="text-[11px] text-slate-400">USD / KRW</p>
+                        </div>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">Google Finance</span>
+                </div>
+                <div class="mt-3 flex items-baseline justify-between">
+                    <div>
+                        <div class="text-2xl font-bold tracking-tight" id="val-USDKRW">로딩 중...</div>
+                        <p class="text-xs mt-0.5 text-slate-400">원 (KRW)</p>
+                    </div>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 opacity-0 group-hover:opacity-100 transition-opacity" id="indicator-USDKRW"></div>
+            </div>
+
+            <!-- S&P 500 Card -->
+            <div class="glass-panel rounded-2xl p-4 card-hover cursor-pointer shadow-sm relative overflow-hidden group" onclick="switchChartDataset('SP500')">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">S&P</span>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100">S&P 500</h3>
+                            <p class="text-[11px] text-slate-400">US Market Index (.INX)</p>
+                        </div>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">뉴욕증시</span>
+                </div>
+                <div class="mt-3 flex items-baseline justify-between">
+                    <div>
+                        <div class="text-2xl font-bold tracking-tight" id="val-SP500">로딩 중...</div>
+                        <p class="text-xs mt-0.5 text-slate-400">pt</p>
+                    </div>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 opacity-0 group-hover:opacity-100 transition-opacity" id="indicator-SP500"></div>
+            </div>
+
+            <!-- NASDAQ Card -->
+            <div class="glass-panel rounded-2xl p-4 card-hover cursor-pointer shadow-sm relative overflow-hidden group" onclick="switchChartDataset('NASDAQ')">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs">IXIC</span>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100">나스닥 종합</h3>
+                            <p class="text-[11px] text-slate-400">NASDAQ (.IXIC)</p>
+                        </div>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">기술주</span>
+                </div>
+                <div class="mt-3 flex items-baseline justify-between">
+                    <div>
+                        <div class="text-2xl font-bold tracking-tight" id="val-NASDAQ">로딩 중...</div>
+                        <p class="text-xs mt-0.5 text-slate-400">pt</p>
+                    </div>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 opacity-0 group-hover:opacity-100 transition-opacity" id="indicator-NASDAQ"></div>
+            </div>
+
+            <!-- DOW JONES Card -->
+            <div class="glass-panel rounded-2xl p-4 card-hover cursor-pointer shadow-sm relative overflow-hidden group" onclick="switchChartDataset('DOW')">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs">DJI</span>
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100">다우 존스</h3>
+                            <p class="text-[11px] text-slate-400">Dow Jones (DJI)</p>
+                        </div>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">대형주</span>
+                </div>
+                <div class="mt-3 flex items-baseline justify-between">
+                    <div>
+                        <div class="text-2xl font-bold tracking-tight" id="val-DOW">로딩 중...</div>
+                        <p class="text-xs mt-0.5 text-slate-400">pt</p>
+                    </div>
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 opacity-0 group-hover:opacity-100 transition-opacity" id="indicator-DOW"></div>
+            </div>
+
+        </section>
+
+        <!-- Interactive Chart & Controls Section -->
+        <section class="glass-panel rounded-2xl p-5 lg:p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-area text-brand-500"></i>
+                        <span id="chartTitle">원/달러 환율 추이</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="chartSubtitle">직접 선택한 자산과 기간의 고정 추이를 분석할 수 있습니다.</p>
+                </div>
+
+                <!-- Asset Switch Tabs & Timeframe Controls -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Dataset Selector Tabs -->
+                    <div class="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex text-xs font-medium">
+                        <button onclick="switchChartDataset('USDKRW')" id="tab-asset-USDKRW" class="px-3 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 font-semibold shadow-sm">환율</button>
+                        <button onclick="switchChartDataset('SP500')" id="tab-asset-SP500" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">S&P 500</button>
+                        <button onclick="switchChartDataset('NASDAQ')" id="tab-asset-NASDAQ" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">나스닥</button>
+                        <button onclick="switchChartDataset('DOW')" id="tab-asset-DOW" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">다우</button>
+                    </div>
+
+                    <!-- Timeframe Tabs -->
+                    <div class="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex text-xs font-medium">
+                        <button onclick="switchTimeframe('1D')" id="tf-1D" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">1일</button>
+                        <button onclick="switchTimeframe('1W')" id="tf-1W" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">1주</button>
+                        <button onclick="switchTimeframe('1M')" id="tf-1M" class="px-2.5 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-sm">1개월</button>
+                        <button onclick="switchTimeframe('3M')" id="tf-3M" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">3개월</button>
+                        <button onclick="switchTimeframe('1Y')" id="tf-1Y" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">1년</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="relative w-full h-[320px] sm:h-[380px]">
+                <canvas id="marketChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Currency Converter & Exchange Profit Calculator Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Converter Tool Card -->
+            <div class="lg:col-span-12 glass-panel rounded-2xl p-5 lg:p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-2">
+                            <i class="fa-solid fa-calculator text-brand-500"></i>
+                            <span>환율 변환 및 환율 변화(손익) 계산기</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">실시간 Google Finance 환율 기반 변환 및 목표/매수 환율 대비 수익률을 계산합니다.</p>
+                    </div>
+
+                    <!-- Mode Toggle Tabs -->
+                    <div class="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex text-xs font-medium self-start sm:self-auto">
+                        <button id="modeBtnSimple" onclick="setCalcMode('simple')" class="px-3 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-sm">기본 환전 변환</button>
+                        <button id="modeBtnTarget" onclick="setCalcMode('target')" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">환율 변동/목표 시뮬레이션</button>
+                    </div>
+                </div>
+
+                <!-- Converter Mode 1: Simple Currency Converter -->
+                <div id="calcModeSimple" class="mt-6 grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
+                    <!-- USD Input -->
+                    <div class="md:col-span-5 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">미국 달러 (USD)</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-3 text-slate-400 font-bold">$</span>
+                            <input type="number" id="inputUSD" value="1000" min="0" step="any" class="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-lg font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition" placeholder="0">
+                        </div>
+                    </div>
+
+                    <!-- Swap Button Icon -->
+                    <div class="md:col-span-1 flex justify-center">
+                        <button id="btnSwapCurrency" onclick="swapCurrencies()" class="p-3 bg-brand-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-slate-700 rounded-full transition shadow-sm border border-brand-100 dark:border-slate-700">
+                            <i class="fa-solid fa-arrows-rotate text-base"></i>
+                        </button>
+                    </div>
+
+                    <!-- KRW Output -->
+                    <div class="md:col-span-5 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">대한민국 원 (KRW)</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-3 text-slate-400 font-bold">₩</span>
+                            <input type="number" id="inputKRW" value="0" min="0" step="any" class="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-lg font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Converter Mode 2: Target Rate & PnL Simulator -->
+                <div id="calcModeTarget" class="mt-6 hidden space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        <!-- Purchase / Base Rate -->
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">매수(기준) 환율 (원)</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3 text-slate-400 text-xs">₩</span>
+                                <input type="number" id="inputBaseRate" value="1300" step="0.1" class="w-full pl-7 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-base font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            </div>
+                        </div>
+
+                        <!-- Holding USD Amount -->
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">보유/투자 금액 (USD)</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3 text-slate-400 text-xs">$</span>
+                                <input type="number" id="inputTargetUSD" value="5000" min="0" step="100" class="w-full pl-7 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-base font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            </div>
+                        </div>
+
+                        <!-- Target / Evaluation Rate -->
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400">목표/현재 비교 환율</label>
+                                <button onclick="useCurrentRateForTarget()" class="text-[11px] text-brand-600 dark:text-brand-400 underline">현재 환율 적용</button>
+                            </div>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3 text-slate-400 text-xs">₩</span>
+                                <input type="number" id="inputTargetRate" value="1350" step="0.1" class="w-full pl-7 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-base font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            </div>
+                        </div>
+
+                        <!-- Quick Scenario Presets -->
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">빠른 시나리오 적용</label>
+                            <div class="grid grid-cols-3 gap-1">
+                                <button onclick="adjustTargetRate(-20)" class="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs text-blue-600 font-medium hover:bg-slate-100 dark:hover:bg-slate-700">-20원</button>
+                                <button onclick="adjustTargetRate(0)" class="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-700">현재</button>
+                                <button onclick="adjustTargetRate(20)" class="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs text-rose-600 font-medium hover:bg-slate-100 dark:hover:bg-slate-700">+20원</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Result Metrics Card -->
+                    <div class="bg-slate-100 dark:bg-slate-800/80 p-5 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">원화 매수 총액</p>
+                            <p class="text-lg font-bold mt-1 text-slate-700 dark:text-slate-200" id="resBaseTotal">₩6,500,000</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">평가 원화 총액</p>
+                            <p class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="resTargetTotal">₩6,750,000</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">환차손익 / 수익률</p>
+                            <div class="flex items-baseline space-x-2 mt-1">
+                                <span class="text-lg font-extrabold text-bull" id="resProfitVal">+₩250,000</span>
+                                <span class="text-xs font-bold text-bull" id="resProfitPct">(+3.85%)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-4 px-4 text-center text-xs text-slate-500 dark:text-slate-400">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>© Google Finance 실시간 대시보드. 본 화면은 사용자 수동 클릭 기반 고정 모니터링 모드로 작동합니다.</p>
+            <p class="flex items-center space-x-2">
+                <span>Chart.js & Tailwind CSS 기반</span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Google Apps Script Web App URL
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycby7_bloyVD_RK1StRiST6Fcnmj6Y7pQPIO5FjJtb5EyagA-rKddGyg2skyufDmkEFFz8g/exec";
+
+        // --- State Management ---
+        const state = {
+            useKoreanColorTheme: true, // true: Red Up / Blue Down, false: Green Up / Red Down
+            activeDataset: 'USDKRW',   // 'USDKRW', 'SP500', 'NASDAQ', 'DOW' - FIXED UNLESS CLICKED
+            activeTimeframe: '1M',     // '1D', '1W', '1M', '3M', '1Y'
+            calcMode: 'simple',        // 'simple', 'target'
+            
+            marketData: {
+                USDKRW: { name: "원/달러 환율", val: 0, symbol: "₩" },
+                SP500:  { name: "S&P 500", val: 0, symbol: "pt" },
+                NASDAQ: { name: "나스닥 종합", val: 0, symbol: "pt" },
+                DOW:    { name: "다우 존스", val: 0, symbol: "pt" }
+            },
+            
+            chartInstance: null
+        };
+
+        // --- Google Apps Script Real-time Data Fetching ---
+        async function fetchGoogleFinanceData() {
+            const refreshIcon = document.getElementById('refreshIcon');
+            if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+            try {
+                const response = await fetch(GAS_API_URL);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.USDKRW) state.marketData.USDKRW.val = Number(data.USDKRW);
+                    if (data.SP500)  state.marketData.SP500.val  = Number(data.SP500);
+                    if (data.NASDAQ) state.marketData.NASDAQ.val = Number(data.NASDAQ);
+                    if (data.DOW)    state.marketData.DOW.val    = Number(data.DOW);
+
+                    updateMarketCardsUI();
+                    if (state.calcMode === 'simple') calculateSimpleConversion('usd');
+                    else calculateTargetProfit();
+
+                    initOrUpdateChart();
+                }
+            } catch (err) {
+                console.error("Google Finance API Fetch Error:", err);
+            } finally {
+                setTimeout(() => {
+                    if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+                }, 500);
+            }
+        }
+
+        // --- Trend Data Generator ---
+        function generateTrendData(assetKey, timeframe) {
+            const currentVal = state.marketData[assetKey].val || 1000;
+            let points = 30;
+            let labelType = 'date';
+
+            switch (timeframe) {
+                case '1D': points = 24; labelType = 'time'; break;
+                case '1W': points = 7; labelType = 'date'; break;
+                case '1M': points = 30; labelType = 'date'; break;
+                case '3M': points = 90; labelType = 'date'; break;
+                case '1Y': points = 52; labelType = 'week'; break;
+            }
+
+            const labels = [];
+            const now = new Date();
+
+            let volatility = currentVal * 0.008;
+            if (assetKey === 'USDKRW') volatility = 3.5;
+
+            let tempVal = currentVal;
+            const tempValues = [tempVal];
+
+            for (let i = 1; i < points; i++) {
+                const randomChange = (Math.random() - 0.49) * volatility;
+                tempVal -= randomChange;
+                tempValues.unshift(tempVal);
+            }
+
+            for (let i = points - 1; i >= 0; i--) {
+                const d = new Date(now);
+                if (labelType === 'time') {
+                    d.setHours(now.getHours() - i);
+                    labels.push(`${String(d.getHours()).padStart(2, '0')}:00`);
+                } else if (labelType === 'date') {
+                    d.setDate(now.getDate() - i);
+                    labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+                } else {
+                    d.setDate(now.getDate() - (i * 7));
+                    labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+                }
+            }
+
+            return { labels, data: tempValues };
+        }
+
+        // --- Chart Rendering Function ---
+        function initOrUpdateChart() {
+            const ctx = document.getElementById('marketChart').getContext('2d');
+            const trend = generateTrendData(state.activeDataset, state.activeTimeframe);
+            const assetInfo = state.marketData[state.activeDataset];
+            
+            const strokeColor = '#3b82f6';
+            const fillColor = 'rgba(59, 130, 246, 0.08)';
+
+            document.getElementById('chartTitle').innerText = `${assetInfo.name} 추이 (${state.activeTimeframe})`;
+
+            if (state.chartInstance) {
+                state.chartInstance.destroy();
+            }
+
+            state.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: trend.labels,
+                    datasets: [{
+                        label: assetInfo.name,
+                        data: trend.data,
+                        borderColor: strokeColor,
+                        borderWidth: 2.5,
+                        fill: true,
+                        backgroundColor: fillColor,
+                        tension: 0.3,
+                        pointRadius: trend.data.length > 40 ? 0 : 3,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: strokeColor,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleFont: { size: 12, family: 'Inter' },
+                            bodyFont: { size: 13, weight: 'bold', family: 'Inter' },
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let val = context.parsed.y;
+                                    let formatted = state.activeDataset === 'USDKRW' 
+                                        ? val.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' 원'
+                                        : val.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' pt';
+                                    return `가격: ${formatted}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11 },
+                                color: '#94a3b8',
+                                maxRotation: 0
+                            }
+                        },
+                        y: {
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                            ticks: {
+                                font: { size: 11 },
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return value >= 1000 ? value.toLocaleString('ko-KR') : value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- UI Update Functions ---
+        function updateMarketCardsUI() {
+            Object.keys(state.marketData).forEach(key => {
+                const item = state.marketData[key];
+                const valEl = document.getElementById(`val-${key}`);
+
+                if (!valEl) return;
+
+                if (item.val && item.val > 0) {
+                    valEl.innerText = item.val.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                } else {
+                    valEl.innerText = "불러오는 중...";
+                }
+            });
+
+            const now = new Date();
+            document.getElementById('lastUpdatedTime').innerText = now.toLocaleTimeString('ko-KR');
+        }
+
+        function switchChartDataset(key) {
+            state.activeDataset = key;
+            
+            ['USDKRW', 'SP500', 'NASDAQ', 'DOW'].forEach(k => {
+                const tab = document.getElementById(`tab-asset-${k}`);
+                const indicator = document.getElementById(`indicator-${k}`);
+                if (k === key) {
+                    tab.className = "px-3 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 font-semibold shadow-sm";
+                    if (indicator) indicator.style.opacity = '1';
+                } else {
+                    tab.className = "px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+                    if (indicator) indicator.style.opacity = '0';
+                }
+            });
+
+            initOrUpdateChart();
+        }
+
+        function switchTimeframe(tf) {
+            state.activeTimeframe = tf;
+
+            ['1D', '1W', '1M', '3M', '1Y'].forEach(t => {
+                const btn = document.getElementById(`tf-${t}`);
+                if (t === tf) {
+                    btn.className = "px-2.5 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-sm";
+                } else {
+                    btn.className = "px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+                }
+            });
+
+            initOrUpdateChart();
+        }
+
+        // --- Currency Converter & Profit Simulator Logic ---
+        function calculateSimpleConversion(source) {
+            const currentRate = state.marketData.USDKRW.val || 1350;
+            const usdInput = document.getElementById('inputUSD');
+            const krwInput = document.getElementById('inputKRW');
+
+            if (source === 'usd') {
+                const usdVal = parseFloat(usdInput.value) || 0;
+                krwInput.value = Math.round(usdVal * currentRate);
+            } else {
+                const krwVal = parseFloat(krwInput.value) || 0;
+                usdInput.value = (krwVal / currentRate).toFixed(2);
+            }
+        }
+
+        function swapCurrencies() {
+            calculateSimpleConversion('usd');
+        }
+
+        function calculateTargetProfit() {
+            const baseRate = parseFloat(document.getElementById('inputBaseRate').value) || 0;
+            const usdAmount = parseFloat(document.getElementById('inputTargetUSD').value) || 0;
+            const targetRate = parseFloat(document.getElementById('inputTargetRate').value) || 0;
+
+            const baseTotal = baseRate * usdAmount;
+            const targetTotal = targetRate * usdAmount;
+            const profit = targetTotal - baseTotal;
+            const profitPct = baseTotal > 0 ? (profit / baseTotal) * 100 : 0;
+
+            document.getElementById('resBaseTotal').innerText = `₩${Math.round(baseTotal).toLocaleString('ko-KR')}`;
+            document.getElementById('resTargetTotal').innerText = `₩${Math.round(targetTotal).toLocaleString('ko-KR')}`;
+
+            const profitValEl = document.getElementById('resProfitVal');
+            const profitPctEl = document.getElementById('resProfitPct');
+
+            const sign = profit >= 0 ? '+' : '';
+            profitValEl.innerText = `${sign}₩${Math.round(profit).toLocaleString('ko-KR')}`;
+            profitPctEl.innerText = `(${sign}${profitPct.toFixed(2)}%)`;
+
+            const isUp = profit >= 0;
+            let colorClass = isUp ? (state.useKoreanColorTheme ? 'text-rose-500' : 'text-emerald-500')
+                                  : (state.useKoreanColorTheme ? 'text-blue-500' : 'text-rose-500');
+
+            profitValEl.className = `text-lg font-extrabold ${colorClass}`;
+            profitPctEl.className = `text-xs font-bold ${colorClass}`;
+        }
+
+        function setCalcMode(mode) {
+            state.calcMode = mode;
+            const simpleDiv = document.getElementById('calcModeSimple');
+            const targetDiv = document.getElementById('calcModeTarget');
+            const modeBtnSimple = document.getElementById('modeBtnSimple');
+            const modeBtnTarget = document.getElementById('modeBtnTarget');
+
+            if (mode === 'simple') {
+                simpleDiv.classList.remove('hidden');
+                targetDiv.classList.add('hidden');
+                modeBtnSimple.className = "px-3 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-sm";
+                modeBtnTarget.className = "px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+                calculateSimpleConversion('usd');
+            } else {
+                simpleDiv.classList.add('hidden');
+                targetDiv.classList.remove('hidden');
+                modeBtnTarget.className = "px-3 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-sm";
+                modeBtnSimple.className = "px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+                calculateTargetProfit();
+            }
+        }
+
+        function useCurrentRateForTarget() {
+            const currentFx = state.marketData.USDKRW.val || 1350;
+            document.getElementById('inputTargetRate').value = currentFx;
+            calculateTargetProfit();
+        }
+
+        function adjustTargetRate(delta) {
+            if (delta === 0) {
+                useCurrentRateForTarget();
+                return;
+            }
+            const currentTarget = parseFloat(document.getElementById('inputTargetRate').value) || (state.marketData.USDKRW.val || 1350);
+            document.getElementById('inputTargetRate').value = (currentTarget + delta).toFixed(1);
+            calculateTargetProfit();
+        }
+
+        // --- Initialization & Event Listeners ---
+        window.addEventListener('DOMContentLoaded', () => {
+            // Theme toggle
+            const btnDarkMode = document.getElementById('btnDarkMode');
+            btnDarkMode.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                initOrUpdateChart();
+            });
+
+            // Color scheme toggle
+            const btnColorTheme = document.getElementById('btnColorTheme');
+            btnColorTheme.addEventListener('click', () => {
+                state.useKoreanColorTheme = !state.useKoreanColorTheme;
+                document.getElementById('colorThemeText').innerText = state.useKoreanColorTheme ? '한국식(▲빨강)' : '해외식(▲초록)';
+                updateMarketCardsUI();
+                initOrUpdateChart();
+                if (state.calcMode === 'target') calculateTargetProfit();
+            });
+
+            // Converter Event Listeners
+            document.getElementById('inputUSD').addEventListener('input', () => calculateSimpleConversion('usd'));
+            document.getElementById('inputKRW').addEventListener('input', () => calculateSimpleConversion('krw'));
+
+            document.getElementById('inputBaseRate').addEventListener('input', calculateTargetProfit);
+            document.getElementById('inputTargetUSD').addEventListener('input', calculateTargetProfit);
+            document.getElementById('inputTargetRate').addEventListener('input', calculateTargetProfit);
+
+            // Fetch Real Data from Google Apps Script
+            fetchGoogleFinanceData();
+        });
+    </script>
+</body>
+</html>
