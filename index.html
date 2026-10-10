@@ -90,7 +90,7 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-lg sm:text-xl tracking-tight leading-tight">Google Finance 실시간 대시보드</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">US Markets & USD/KRW (Google Sheets API 연동)</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Markets & USD/KRW (100% Real-time Data)</p>
                 </div>
             </div>
 
@@ -192,25 +192,25 @@
                 <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 opacity-0 group-hover:opacity-100 transition-opacity" id="indicator-NASDAQ"></div>
             </div>
 
-            <!-- DOW JONES Card -->
-            <div class="glass-panel rounded-2xl p-4 card-hover cursor-pointer shadow-sm relative overflow-hidden group" onclick="switchChartDataset('DOW')">
+            <!-- KOSPI Card (다우존스 대신 변경) -->
+            <div class="glass-panel rounded-2xl p-4 card-hover cursor-pointer shadow-sm relative overflow-hidden group" onclick="switchChartDataset('KOSPI')">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center space-x-2">
-                        <span class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs">DJI</span>
+                        <span class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs">KRX</span>
                         <div>
-                            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100">다우 존스</h3>
-                            <p class="text-[11px] text-slate-400">Dow Jones (DJI)</p>
+                            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100">코스피 지수</h3>
+                            <p class="text-[11px] text-slate-400">KOSPI (KRX:KOSPI)</p>
                         </div>
                     </div>
-                    <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">대형주</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">국내증시</span>
                 </div>
                 <div class="mt-3 flex items-baseline justify-between">
                     <div>
-                        <div class="text-2xl font-bold tracking-tight" id="val-DOW">로딩 중...</div>
+                        <div class="text-2xl font-bold tracking-tight" id="val-KOSPI">로딩 중...</div>
                         <p class="text-xs mt-0.5 text-slate-400">pt</p>
                     </div>
                 </div>
-                <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 opacity-0 group-hover:opacity-100 transition-opacity" id="indicator-DOW"></div>
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-brand-500 opacity-0 group-hover:opacity-100 transition-opacity" id="indicator-KOSPI"></div>
             </div>
 
         </section>
@@ -221,28 +221,18 @@
                 <div>
                     <h2 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-2">
                         <i class="fa-solid fa-chart-area text-brand-500"></i>
-                        <span id="chartTitle">원/달러 환율 추이</span>
+                        <span id="chartTitle">원/달러 환율 추이 (최근 1년 실제 데이터)</span>
                     </h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="chartSubtitle">직접 선택한 자산과 기간의 고정 추이를 분석할 수 있습니다.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="chartSubtitle">Google Finance 실제 일별 종가 기록 기준 1년 그래프입니다.</p>
                 </div>
 
-                <!-- Asset Switch Tabs & Timeframe Controls -->
+                <!-- Asset Switch Tabs -->
                 <div class="flex flex-wrap items-center gap-2">
-                    <!-- Dataset Selector Tabs -->
                     <div class="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex text-xs font-medium">
                         <button onclick="switchChartDataset('USDKRW')" id="tab-asset-USDKRW" class="px-3 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 font-semibold shadow-sm">환율</button>
                         <button onclick="switchChartDataset('SP500')" id="tab-asset-SP500" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">S&P 500</button>
                         <button onclick="switchChartDataset('NASDAQ')" id="tab-asset-NASDAQ" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">나스닥</button>
-                        <button onclick="switchChartDataset('DOW')" id="tab-asset-DOW" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">다우</button>
-                    </div>
-
-                    <!-- Timeframe Tabs -->
-                    <div class="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex text-xs font-medium">
-                        <button onclick="switchTimeframe('1D')" id="tf-1D" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">1일</button>
-                        <button onclick="switchTimeframe('1W')" id="tf-1W" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">1주</button>
-                        <button onclick="switchTimeframe('1M')" id="tf-1M" class="px-2.5 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-sm">1개월</button>
-                        <button onclick="switchTimeframe('3M')" id="tf-3M" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">3개월</button>
-                        <button onclick="switchTimeframe('1Y')" id="tf-1Y" class="px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">1년</button>
+                        <button onclick="switchChartDataset('KOSPI')" id="tab-asset-KOSPI" class="px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">코스피</button>
                     </div>
                 </div>
             </div>
@@ -373,7 +363,7 @@
     <!-- Footer -->
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-4 px-4 text-center text-xs text-slate-500 dark:text-slate-400">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p>© Google Finance 실시간 대시보드. 본 화면은 사용자 수동 클릭 기반 고정 모니터링 모드로 작동합니다.</p>
+            <p>© Google Finance 실시간 대시보드. 본 화면은 Google Finance 1년 실제 종가 데이터를 기반으로 작동합니다.</p>
             <p class="flex items-center space-x-2">
                 <span>Chart.js & Tailwind CSS 기반</span>
             </p>
@@ -387,16 +377,22 @@
 
         // --- State Management ---
         const state = {
-            useKoreanColorTheme: true, // true: Red Up / Blue Down, false: Green Up / Red Down
-            activeDataset: 'USDKRW',   // 'USDKRW', 'SP500', 'NASDAQ', 'DOW' - FIXED UNLESS CLICKED
-            activeTimeframe: '1M',     // '1D', '1W', '1M', '3M', '1Y'
-            calcMode: 'simple',        // 'simple', 'target'
+            useKoreanColorTheme: true,
+            activeDataset: 'USDKRW',
+            calcMode: 'simple',
             
             marketData: {
                 USDKRW: { name: "원/달러 환율", val: 0, symbol: "₩" },
                 SP500:  { name: "S&P 500", val: 0, symbol: "pt" },
                 NASDAQ: { name: "나스닥 종합", val: 0, symbol: "pt" },
-                DOW:    { name: "다우 존스", val: 0, symbol: "pt" }
+                KOSPI:  { name: "코스피 지수", val: 0, symbol: "pt" }
+            },
+            
+            historyData: {
+                USDKRW: { labels: [], data: [] },
+                SP500:  { labels: [], data: [] },
+                NASDAQ: { labels: [], data: [] },
+                KOSPI:  { labels: [], data: [] }
             },
             
             chartInstance: null
@@ -415,7 +411,11 @@
                     if (data.USDKRW) state.marketData.USDKRW.val = Number(data.USDKRW);
                     if (data.SP500)  state.marketData.SP500.val  = Number(data.SP500);
                     if (data.NASDAQ) state.marketData.NASDAQ.val = Number(data.NASDAQ);
-                    if (data.DOW)    state.marketData.DOW.val    = Number(data.DOW);
+                    if (data.KOSPI)  state.marketData.KOSPI.val  = Number(data.KOSPI);
+
+                    if (data.history) {
+                        state.historyData = data.history;
+                    }
 
                     updateMarketCardsUI();
                     if (state.calcMode === 'simple') calculateSimpleConversion('usd');
@@ -432,62 +432,16 @@
             }
         }
 
-        // --- Trend Data Generator ---
-        function generateTrendData(assetKey, timeframe) {
-            const currentVal = state.marketData[assetKey].val || 1000;
-            let points = 30;
-            let labelType = 'date';
-
-            switch (timeframe) {
-                case '1D': points = 24; labelType = 'time'; break;
-                case '1W': points = 7; labelType = 'date'; break;
-                case '1M': points = 30; labelType = 'date'; break;
-                case '3M': points = 90; labelType = 'date'; break;
-                case '1Y': points = 52; labelType = 'week'; break;
-            }
-
-            const labels = [];
-            const now = new Date();
-
-            let volatility = currentVal * 0.008;
-            if (assetKey === 'USDKRW') volatility = 3.5;
-
-            let tempVal = currentVal;
-            const tempValues = [tempVal];
-
-            for (let i = 1; i < points; i++) {
-                const randomChange = (Math.random() - 0.49) * volatility;
-                tempVal -= randomChange;
-                tempValues.unshift(tempVal);
-            }
-
-            for (let i = points - 1; i >= 0; i--) {
-                const d = new Date(now);
-                if (labelType === 'time') {
-                    d.setHours(now.getHours() - i);
-                    labels.push(`${String(d.getHours()).padStart(2, '0')}:00`);
-                } else if (labelType === 'date') {
-                    d.setDate(now.getDate() - i);
-                    labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
-                } else {
-                    d.setDate(now.getDate() - (i * 7));
-                    labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
-                }
-            }
-
-            return { labels, data: tempValues };
-        }
-
         // --- Chart Rendering Function ---
         function initOrUpdateChart() {
             const ctx = document.getElementById('marketChart').getContext('2d');
-            const trend = generateTrendData(state.activeDataset, state.activeTimeframe);
+            const trend = state.historyData[state.activeDataset] || { labels: [], data: [] };
             const assetInfo = state.marketData[state.activeDataset];
             
             const strokeColor = '#3b82f6';
             const fillColor = 'rgba(59, 130, 246, 0.08)';
 
-            document.getElementById('chartTitle').innerText = `${assetInfo.name} 추이 (${state.activeTimeframe})`;
+            document.getElementById('chartTitle').innerText = `${assetInfo.name} 추이 (최근 1년 실제 데이터)`;
 
             if (state.chartInstance) {
                 state.chartInstance.destroy();
@@ -505,7 +459,7 @@
                         fill: true,
                         backgroundColor: fillColor,
                         tension: 0.3,
-                        pointRadius: trend.data.length > 40 ? 0 : 3,
+                        pointRadius: 2,
                         pointHoverRadius: 6,
                         pointHoverBackgroundColor: strokeColor,
                     }]
@@ -542,7 +496,8 @@
                             ticks: {
                                 font: { size: 11 },
                                 color: '#94a3b8',
-                                maxRotation: 0
+                                maxRotation: 0,
+                                maxTicksLimit: 12
                             }
                         },
                         y: {
@@ -582,7 +537,7 @@
         function switchChartDataset(key) {
             state.activeDataset = key;
             
-            ['USDKRW', 'SP500', 'NASDAQ', 'DOW'].forEach(k => {
+            ['USDKRW', 'SP500', 'NASDAQ', 'KOSPI'].forEach(k => {
                 const tab = document.getElementById(`tab-asset-${k}`);
                 const indicator = document.getElementById(`indicator-${k}`);
                 if (k === key) {
@@ -591,21 +546,6 @@
                 } else {
                     tab.className = "px-3 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
                     if (indicator) indicator.style.opacity = '0';
-                }
-            });
-
-            initOrUpdateChart();
-        }
-
-        function switchTimeframe(tf) {
-            state.activeTimeframe = tf;
-
-            ['1D', '1W', '1M', '3M', '1Y'].forEach(t => {
-                const btn = document.getElementById(`tf-${t}`);
-                if (t === tf) {
-                    btn.className = "px-2.5 py-1.5 rounded-lg transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-sm";
-                } else {
-                    btn.className = "px-2.5 py-1.5 rounded-lg transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
                 }
             });
 
