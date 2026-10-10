@@ -107,12 +107,6 @@
                         <i class="fa-solid fa-arrows-rotate text-sm" id="refreshIcon"></i>
                     </button>
 
-                    <!-- Color Mode Toggle -->
-                    <button id="btnColorTheme" title="상승/하락 색상 기준 변경" class="px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center space-x-1">
-                        <i class="fa-solid fa-palette text-xs"></i>
-                        <span id="colorThemeText">한국식(▲빨강)</span>
-                    </button>
-
                     <!-- Dark Mode Toggle -->
                     <button id="btnDarkMode" title="다크 모드 토글" class="p-2 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
                         <i class="fa-solid fa-moon text-sm dark:hidden"></i>
@@ -349,8 +343,8 @@
                         <div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">환차손익 / 수익률</p>
                             <div class="flex items-baseline space-x-2 mt-1">
-                                <span class="text-lg font-extrabold text-bull" id="resProfitVal">+₩250,000</span>
-                                <span class="text-xs font-bold text-bull" id="resProfitPct">(+3.85%)</span>
+                                <span class="text-lg font-extrabold text-rose-500" id="resProfitVal">+₩250,000</span>
+                                <span class="text-xs font-bold text-rose-500" id="resProfitPct">(+3.85%)</span>
                             </div>
                         </div>
                     </div>
@@ -372,12 +366,9 @@
 
     <!-- JavaScript Application Logic -->
     <script>
-        // Google Apps Script Web App URL
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzJIAYqN10pfB1J_HNpmGS-6d66QQK8NDsUfenmxsRQGQfNtQ1nxAF3c9saC8PnCKFbYw/exec";
 
-        // --- State Management ---
         const state = {
-            useKoreanColorTheme: true,
             activeDataset: 'USDKRW',
             calcMode: 'simple',
             
@@ -398,7 +389,6 @@
             chartInstance: null
         };
 
-        // --- Google Apps Script Real-time Data Fetching ---
         async function fetchGoogleFinanceData() {
             const refreshIcon = document.getElementById('refreshIcon');
             if (refreshIcon) refreshIcon.classList.add('fa-spin');
@@ -432,7 +422,6 @@
             }
         }
 
-        // --- Chart Rendering Function ---
         function initOrUpdateChart() {
             const ctx = document.getElementById('marketChart').getContext('2d');
             const trend = state.historyData[state.activeDataset] || { labels: [], data: [] };
@@ -442,6 +431,18 @@
             const fillColor = 'rgba(59, 130, 246, 0.08)';
 
             document.getElementById('chartTitle').innerText = `${assetInfo.name} 추이 (최근 1년 실제 데이터)`;
+
+            let maxIndex = -1;
+            if (trend.data && trend.data.length > 0) {
+                const maxValue = Math.max(...trend.data);
+                maxIndex = trend.data.indexOf(maxValue);
+            }
+
+            const pointBgColor = trend.data.map((_, i) => i === maxIndex ? '#ef4444' : strokeColor);
+            const pointBorderColor = trend.data.map((_, i) => i === maxIndex ? '#ffffff' : strokeColor);
+            const pointBorderWidth = trend.data.map((_, i) => i === maxIndex ? 2 : 1);
+            const pointRadius = trend.data.map((_, i) => i === maxIndex ? 7 : 2);
+            const pointHoverRadius = trend.data.map((_, i) => i === maxIndex ? 10 : 6);
 
             if (state.chartInstance) {
                 state.chartInstance.destroy();
@@ -459,9 +460,13 @@
                         fill: true,
                         backgroundColor: fillColor,
                         tension: 0.3,
-                        pointRadius: 2,
-                        pointHoverRadius: 6,
-                        pointHoverBackgroundColor: strokeColor,
+                        pointBackgroundColor: pointBgColor,
+                        pointBorderColor: pointBorderColor,
+                        pointBorderWidth: pointBorderWidth,
+                        pointRadius: pointRadius,
+                        pointHoverRadius: pointHoverRadius,
+                        pointHoverBackgroundColor: pointBgColor,
+                        pointHoverBorderColor: pointBorderColor,
                     }]
                 },
                 options: {
@@ -515,7 +520,6 @@
             });
         }
 
-        // --- UI Update Functions ---
         function updateMarketCardsUI() {
             Object.keys(state.marketData).forEach(key => {
                 const item = state.marketData[key];
@@ -552,7 +556,6 @@
             initOrUpdateChart();
         }
 
-        // --- Currency Converter & Profit Simulator Logic ---
         function calculateSimpleConversion(source) {
             const currentRate = state.marketData.USDKRW.val || 1350;
             const usdInput = document.getElementById('inputUSD');
@@ -592,8 +595,7 @@
             profitPctEl.innerText = `(${sign}${profitPct.toFixed(2)}%)`;
 
             const isUp = profit >= 0;
-            let colorClass = isUp ? (state.useKoreanColorTheme ? 'text-rose-500' : 'text-emerald-500')
-                                  : (state.useKoreanColorTheme ? 'text-blue-500' : 'text-rose-500');
+            let colorClass = isUp ? 'text-rose-500' : 'text-blue-500';
 
             profitValEl.className = `text-lg font-extrabold ${colorClass}`;
             profitPctEl.className = `text-xs font-bold ${colorClass}`;
@@ -637,23 +639,12 @@
             calculateTargetProfit();
         }
 
-        // --- Initialization & Event Listeners ---
         window.addEventListener('DOMContentLoaded', () => {
             // Theme toggle
             const btnDarkMode = document.getElementById('btnDarkMode');
             btnDarkMode.addEventListener('click', () => {
                 document.documentElement.classList.toggle('dark');
                 initOrUpdateChart();
-            });
-
-            // Color scheme toggle
-            const btnColorTheme = document.getElementById('btnColorTheme');
-            btnColorTheme.addEventListener('click', () => {
-                state.useKoreanColorTheme = !state.useKoreanColorTheme;
-                document.getElementById('colorThemeText').innerText = state.useKoreanColorTheme ? '한국식(▲빨강)' : '해외식(▲초록)';
-                updateMarketCardsUI();
-                initOrUpdateChart();
-                if (state.calcMode === 'target') calculateTargetProfit();
             });
 
             // Converter Event Listeners
