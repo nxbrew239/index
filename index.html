@@ -427,8 +427,8 @@
             const trend = state.historyData[state.activeDataset] || { labels: [], data: [] };
             const assetInfo = state.marketData[state.activeDataset];
             
-            const strokeColor = '#3b82f6';
-            const fillColor = 'rgba(59, 130, 246, 0.08)';
+            const strokeColor = '#000000'; // 선 색상을 검은색으로 변경
+            const fillColor = 'rgba(239, 68, 68, 0.1)'; // 면적 색상 (연한 빨간색 유지)
 
             document.getElementById('chartTitle').innerText = `${assetInfo.name} 추이 (최근 1년 실제 데이터)`;
 
