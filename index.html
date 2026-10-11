@@ -267,6 +267,7 @@
                             <span class="absolute left-3 text-slate-400 font-bold">$</span>
                             <input type="number" id="inputUSD" value="1000" min="0" step="any" class="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-lg font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition" placeholder="0">
                         </div>
+                        <p class="text-xs font-semibold text-brand-600 dark:text-brand-400 mt-2" id="textUSDKorean">일천달러</p>
                     </div>
 
                     <!-- Swap Button Icon -->
@@ -283,6 +284,7 @@
                             <span class="absolute left-3 text-slate-400 font-bold">₩</span>
                             <input type="number" id="inputKRW" value="0" min="0" step="any" class="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-lg font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition" placeholder="0">
                         </div>
+                        <p class="text-xs font-semibold text-brand-600 dark:text-brand-400 mt-2" id="textKRWKorean">영원</p>
                     </div>
                 </div>
 
@@ -305,6 +307,7 @@
                                 <span class="absolute left-3 text-slate-400 text-xs">$</span>
                                 <input type="number" id="inputTargetUSD" value="5000" min="0" step="100" class="w-full pl-7 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-base font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
                             </div>
+                            <p class="text-xs font-semibold text-brand-600 dark:text-brand-400 mt-2" id="textTargetUSDKorean">오천달러</p>
                         </div>
 
                         <!-- Target / Evaluation Rate -->
@@ -335,10 +338,12 @@
                         <div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">원화 매수 총액</p>
                             <p class="text-lg font-bold mt-1 text-slate-700 dark:text-slate-200" id="resBaseTotal">₩6,500,000</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="resBaseTotalKorean"></p>
                         </div>
                         <div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">평가 원화 총액</p>
                             <p class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="resTargetTotal">₩6,750,000</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="resTargetTotalKorean"></p>
                         </div>
                         <div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">환차손익 / 수익률</p>
@@ -346,6 +351,7 @@
                                 <span class="text-lg font-extrabold text-rose-500" id="resProfitVal">+₩250,000</span>
                                 <span class="text-xs font-bold text-rose-500" id="resProfitPct">(+3.85%)</span>
                             </div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="resProfitKorean"></p>
                         </div>
                     </div>
                 </div>
@@ -388,6 +394,45 @@
             
             chartInstance: null
         };
+
+        // 숫자를 한글 읽기 문자열로 변환하는 함수
+        function numberToKoreanText(num, unit = '') {
+            if (num === null || num === undefined || isNaN(num)) return '';
+            
+            let absNum = Math.abs(Math.round(num));
+            if (absNum === 0) return `영${unit}`;
+
+            const units = ['', '만', '억', '조', '경'];
+            const smallUnits = ['', '십', '백', '천'];
+            const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+
+            let numStr = String(absNum);
+            let result = '';
+            let unitIndex = 0;
+
+            while (numStr.length > 0) {
+                let chunk = numStr.slice(-4);
+                numStr = numStr.slice(0, -4);
+
+                let chunkResult = '';
+                for (let i = 0; i < chunk.length; i++) {
+                    let digit = parseInt(chunk[chunk.length - 1 - i]);
+                    if (digit !== 0) {
+                        let smallUnit = smallUnits[i];
+                        let digitChar = digits[digit];
+                        chunkResult = digitChar + smallUnit + chunkResult;
+                    }
+                }
+
+                if (chunkResult !== '') {
+                    result = chunkResult + units[unitIndex] + result;
+                }
+                unitIndex++;
+            }
+
+            let prefix = num < 0 ? '마이너스 ' : '';
+            return prefix + result + unit;
+        }
 
         async function fetchGoogleFinanceData() {
             const refreshIcon = document.getElementById('refreshIcon');
@@ -568,6 +613,12 @@
                 const krwVal = parseFloat(krwInput.value) || 0;
                 usdInput.value = (krwVal / currentRate).toFixed(2);
             }
+
+            // 한글 금액 표시 업데이트
+            const finalUsd = parseFloat(usdInput.value) || 0;
+            const finalKrw = parseFloat(krwInput.value) || 0;
+            document.getElementById('textUSDKorean').innerText = numberToKoreanText(finalUsd, '달러');
+            document.getElementById('textKRWKorean').innerText = numberToKoreanText(finalKrw, '원');
         }
 
         function swapCurrencies() {
@@ -584,15 +635,25 @@
             const profit = targetTotal - baseTotal;
             const profitPct = baseTotal > 0 ? (profit / baseTotal) * 100 : 0;
 
-            document.getElementById('resBaseTotal').innerText = `₩${Math.round(baseTotal).toLocaleString('ko-KR')}`;
-            document.getElementById('resTargetTotal').innerText = `₩${Math.round(targetTotal).toLocaleString('ko-KR')}`;
+            document.getElementById('textTargetUSDKorean').innerText = numberToKoreanText(usdAmount, '달러');
+
+            const roundedBaseTotal = Math.round(baseTotal);
+            const roundedTargetTotal = Math.round(targetTotal);
+            const roundedProfit = Math.round(profit);
+
+            document.getElementById('resBaseTotal').innerText = `₩${roundedBaseTotal.toLocaleString('ko-KR')}`;
+            document.getElementById('resBaseTotalKorean').innerText = numberToKoreanText(roundedBaseTotal, '원');
+
+            document.getElementById('resTargetTotal').innerText = `₩${roundedTargetTotal.toLocaleString('ko-KR')}`;
+            document.getElementById('resTargetTotalKorean').innerText = numberToKoreanText(roundedTargetTotal, '원');
 
             const profitValEl = document.getElementById('resProfitVal');
             const profitPctEl = document.getElementById('resProfitPct');
 
             const sign = profit >= 0 ? '+' : '';
-            profitValEl.innerText = `${sign}₩${Math.round(profit).toLocaleString('ko-KR')}`;
+            profitValEl.innerText = `${sign}₩${roundedProfit.toLocaleString('ko-KR')}`;
             profitPctEl.innerText = `(${sign}${profitPct.toFixed(2)}%)`;
+            document.getElementById('resProfitKorean').innerText = numberToKoreanText(roundedProfit, '원');
 
             const isUp = profit >= 0;
             let colorClass = isUp ? 'text-rose-500' : 'text-blue-500';
